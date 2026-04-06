@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dead Hang</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root { --bg:#0f0f0e; --surface:#1a1a18; --surface2:#232320; --border:#2e2e2a; --text:#e8e6df; --muted:#6b6960; --accent:#c8f060; --accent2:#60d4c8; --warn:#f0a060; --danger:#f06060; --r:14px; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:32px 20px 60px; max-width:400px; margin:0 auto; }
+  .setup { text-align:center; padding-top:60px; }
+  .setup h2 { font-size:22px; margin-bottom:8px; }
+  .setup p { font-size:14px; color:var(--muted); margin-bottom:28px; }
+  .setup input { width:100%; padding:14px 16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r); color:var(--text); font-size:18px; font-family:'DM Sans',sans-serif; text-align:center; outline:none; margin-bottom:12px; }
+  .setup input:focus { border-color:var(--accent); }
+  .btn-setup { width:100%; padding:15px; background:var(--accent); color:#0f0f0e; border:none; border-radius:var(--r); font-size:16px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .main { display:none; }
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  .user-name { font-size:20px; font-weight:600; }
+  .change-btn { font-size:12px; color:var(--muted); background:none; border:none; cursor:pointer; font-family:'DM Mono',monospace; }
+  .timer-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:28px 20px 20px; margin-bottom:16px; }
+  .tmsg { text-align:center; font-size:15px; font-weight:500; min-height:22px; margin-bottom:10px; color:var(--accent2); }
+  .tbig { font-family:'DM Mono',monospace; font-size:80px; font-weight:300; text-align:center; color:var(--text); letter-spacing:-0.02em; line-height:1; margin-bottom:8px; }
+  .tbig.running { color:var(--accent); }
+  .tbig.valid { color:var(--accent); }
+  .tbig.invalid { color:var(--danger); }
+  .pw { background:var(--surface2); border-radius:4px; height:5px; margin-bottom:20px; overflow:hidden; }
+  .pb { height:100%; border-radius:4px; background:var(--warn); transition:width 1s linear; }
+  .pb.over { background:var(--accent); }
+  .btns { display:flex; gap:10px; }
+  .btn { flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:transform 0.1s; -webkit-tap-highlight-color:transparent; }
+  .btn:active { transform:scale(0.97); }
+  .bgo { background:var(--accent); color:#0f0f0e; }
+  .bstop { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .breset { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+  .result { border-radius:var(--r); padding:20px; margin-bottom:16px; display:none; text-align:center; }
+  .result.ok { background:#161d0e; border:1px solid var(--accent); }
+  .result.ko { background:#1a0e0e; border:1px solid var(--danger); }
+  .remoji { font-size:40px; margin-bottom:8px; }
+  .rtitle { font-size:18px; font-weight:600; margin-bottom:4px; }
+  .rsub { font-size:13px; color:var(--muted); font-family:'DM Mono',monospace; }
+  .reminder { margin-top:14px; padding:12px; background:rgba(255,255,255,0.04); border-radius:10px; font-size:13px; color:var(--accent2); line-height:1.5; display:none; }
+  .bwa { width:100%; padding:13px; background:#25d366; color:white; border:none; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; margin-top:10px; display:none; }
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; }
+  .slabel { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
+  .sval { font-size:28px; font-weight:500; font-family:'DM Mono',monospace; color:var(--accent); line-height:1; }
+  .ssub { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; margin-top:3px; }
+  .htitle { font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-family:'DM Mono',monospace; margin-bottom:10px; }
+  .hgrid { display:flex; flex-wrap:wrap; gap:5px; }
+  .hday { width:36px; height:40px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2px; }
+  .hday.done { background:#161d0e; border-color:var(--accent); }
+  .hday.today { border-color:var(--accent2); }
+  .hday span { font-size:9px; font-family:'DM Mono',monospace; color:var(--muted); }
+  .hday.done span { color:var(--accent); }
+  .hdot { width:5px; height:5px; border-radius:50%; background:var(--border); }
+  .hday.done .hdot { background:var(--accent); }
+  .htime { font-size:8px; font-family:'DM Mono',monospace; color:var(--accent); }
+  .notif { position:fixed; top:16px; left:50%; transform:translateX(-50%) translateY(-60px); background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:12px 20px; font-size:13px; color:var(--accent); font-family:'DM Mono',monospace; z-index:99; transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1); white-space:nowrap; max-width:90vw; text-align:center; }
+  .notif.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="setup" id="setup">
+  <h2>Dead Hang 🧗</h2>
+  <p>Escribe tu nombre para empezar</p>
+  <input type="text" id="ninput" placeholder="Tu nombre" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')saveName()">
+  <button class="btn-setup" onclick="saveName()">Empezar</button>
+</div>
+
+<div class="main" id="main">
+  <div class="header">
+    <div class="user-name" id="uname"></div>
+    <button class="change-btn" onclick="changeName()">cambiar nombre</button>
+  </div>
+
+  <div class="timer-card">
+    <div class="tmsg" id="tmsg"></div>
+    <div class="tbig" id="clock">0:00</div>
+    <div class="pw"><div class="pb" id="pb" style="width:0%"></div></div>
+    <div class="btns">
+      <button class="btn bgo" id="bgo" onclick="startStop()">Iniciar</button>
+      <button class="btn breset" onclick="resetTimer()">Reset</button>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="remoji" id="remoji"></div>
+    <div class="rtitle" id="rtitle"></div>
+    <div class="rsub" id="rsub"></div>
+    <div class="reminder" id="reminder">📸 Haz una captura de pantalla y mándasela a papá por WhatsApp</div>
+    <button class="bwa" id="bwa" onclick="sendWA()">Abrir WhatsApp</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="htitle">Últimos 21 días</div>
+  <div class="hgrid" id="hgrid"></div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+var KEY = 'dh2_';
+var TARGET = 60;
+var MSGS = [{s:15,m:'Bien! 💪'},{s:30,m:'30 seg — sigue'},{s:45,m:'Aguanta!'},{s:60,m:'1 minuto!'},{s:75,m:'Casi!'},{s:90,m:'90 seg — empuja'},{s:105,m:'15 seg más!'},{s:120,m:'🎯 2 MINUTOS!'}];
+var uname = localStorage.getItem('dh_name') || null;
+var udata = null;
+var secs = 0, running = false, iv = null, wl = null, lastSecs = 0;
+
+function fmt(s) { return Math.floor(s/60)+':'+('0'+s%60).slice(-2); }
+function tkey() { return new Date().toLocaleDateString('en-CA',{timeZone:'Europe/Madrid'}); }
+function loadU(n) { try { return JSON.parse(localStorage.getItem(KEY+n))||{log:{},best:0}; } catch(e) { return {log:{},best:0}; } }
+function saveU() { localStorage.setItem(KEY+uname, JSON.stringify(udata)); }
+
+function saveName() {
+  var v = document.getElementById('ninput').value.trim();
+  if (!v) { showNotif('Escribe tu nombre'); return; }
+  uname = v;
+  localStorage.setItem('dh_name', uname);
+  udata = loadU(uname);
+  showMain();
+}
+
+function changeName() {
+  if (!confirm('Cambiar nombre? Tus datos se conservan.')) return;
+  localStorage.removeItem('dh_name');
+  document.getElementById('setup').style.display = 'block';
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('ninput').value = '';
+}
+
+function showMain() {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  document.getElementById('uname').textContent = uname;
+  renderStats(); renderHistory();
+}
+
+function startStop() {
+  if (running) { stopTimer(); return; }
+  running = true;
+  document.getElementById('bgo').textContent = 'Parar';
+  document.getElementById('bgo').className = 'btn bstop';
+  document.getElementById('clock').className = 'tbig running';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('tmsg').textContent = '';
+  if (navigator.wakeLock) { navigator.wakeLock.request('screen').then(function(l){wl=l;}).catch(function(){}); }
+  iv = setInterval(function() {
+    secs++;
+    document.getElementById('clock').textContent = fmt(secs);
+    var pct = Math.min(100,(secs/TARGET)*100);
+    document.getElementById('pb').style.width = pct+'%';
+    if (secs >= TARGET) document.getElementById('pb').className = 'pb over';
+    var m = MSGS.filter(function(x){return x.s===secs;})[0];
+    if (m) document.getElementById('tmsg').textContent = m.m;
+    if (secs >= TARGET) stopTimer();
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(iv); running = false;
+  if (wl) { wl.release(); wl = null; }
+  document.getElementById('bgo').textContent = 'Iniciar';
+  document.getElementById('bgo').className = 'btn bgo';
+  lastSecs = secs;
+  var valid = secs >= TARGET;
+  var k = tkey();
+  if (valid) {
+    if (secs > (udata.log[k]||0)) udata.log[k] = secs;
+    if (secs > udata.best) udata.best = secs;
+    saveU();
+  }
+  showResult(valid);
+  renderStats(); renderHistory();
+}
+
+function resetTimer() {
+  clearInterval(iv); running = false; secs = 0;
+  if (wl) { wl.release(); wl = null; }
+  document.getElementById('bgo').textContent = 'Iniciar';
+  document.getElementById('bgo').className = 'btn bgo';
+  document.getElementById('clock').className = 'tbig';
+  document.getElementById('clock').textContent = '0:00';
+  document.getElementById('tmsg').textContent = '';
+  document.getElementById('pb').style.width = '0%';
+  document.getElementById('pb').className = 'pb';
+  document.getElementById('result').style.display = 'none';
+}
+
+function calcStreak() {
+  var s = 0, d = new Date(), tk = tkey();
+  while (true) {
+    var k = d.toLocaleDateString('en-CA',{timeZone:'Europe/Madrid'});
+    if (k===tk && !(udata.log[k]&&udata.log[k]>=TARGET)) { d.setDate(d.getDate()-1); continue; }
+    if (udata.log[k] && udata.log[k]>=TARGET) { s++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return s;
+}
+
+function showResult(valid) {
+  var el = document.getElementById('result');
+  el.style.display = 'block';
+  el.className = 'result '+(valid?'ok':'ko');
+  document.getElementById('clock').className = 'tbig '+(valid?'valid':'invalid');
+  document.getElementById('remoji').textContent = valid ? '✅' : '❌';
+  var streak = calcStreak();
+  if (valid) {
+    var isRec = lastSecs >= udata.best;
+    document.getElementById('rtitle').textContent = isRec ? '¡Nuevo récord! 🏆' : '¡Válido!';
+    document.getElementById('rsub').textContent = fmt(lastSecs)+'  ·  Racha: '+streak+' día'+(streak!==1?'s':'');
+    document.getElementById('reminder').style.display = 'block';
+    document.getElementById('bwa').style.display = 'block';
+  } else {
+    document.getElementById('rtitle').textContent = 'No válido — mínimo 1:00';
+    document.getElementById('rsub').textContent = fmt(lastSecs)+' — faltan '+fmt(TARGET-lastSecs);
+    document.getElementById('reminder').style.display = 'none';
+    document.getElementById('bwa').style.display = 'none';
+  }
+}
+
+function renderStats() {
+  var streak = calcStreak();
+  var tv = udata.log[tkey()];
+  document.getElementById('stats').innerHTML =
+    '<div class="stat"><div class="slabel">Racha</div><div class="sval">'+streak+'</div><div class="ssub">días seguidos</div></div>'+
+    '<div class="stat"><div class="slabel">Récord</div><div class="sval">'+(udata.best>=TARGET?fmt(udata.best):'—')+'</div><div class="ssub">'+(udata.best>=TARGET?'tiempo máximo':'sin récord aún')+'</div></div>'+
+    '<div class="stat"><div class="slabel">Hoy</div><div class="sval" style="color:'+(tv&&tv>=TARGET?'var(--accent)':'var(--muted)')+'">'+(tv?fmt(tv):'—')+'</div><div class="ssub">'+(tv&&tv>=TARGET?'válido':'sin hacer')+'</div></div>'+
+    '<div class="stat"><div class="slabel">Objetivo</div><div class="sval" style="color:var(--warn)">1:00</div><div class="ssub">mínimo válido</div></div>';
+}
+
+function renderHistory() {
+  var wrap = document.getElementById('hgrid');
+  wrap.innerHTML = '';
+  var tk = tkey(), d = new Date();
+  d.setDate(d.getDate()-20);
+  for (var i=0; i<21; i++) {
+    var k = d.toLocaleDateString('en-CA',{timeZone:'Europe/Madrid'});
+    var val = udata.log[k], done = val&&val>=TARGET, isT = k===tk;
+    var el = document.createElement('div');
+    el.className = 'hday'+(done?' done':'')+(isT&&!done?' today':'');
+    el.innerHTML = '<span>'+d.getDate()+'</span><div class="hdot"></div>'+(done?'<span class="htime">'+fmt(val)+'</span>':'');
+    wrap.appendChild(el);
+    d.setDate(d.getDate()+1);
+  }
+}
+
+function sendWA() {
+  var streak = calcStreak();
+  var txt = '🧗 Dead Hang — '+uname+'\n⏱ Tiempo: '+fmt(lastSecs)+'\n🔥 Racha: '+streak+' día'+(streak!==1?'s':'')+'\n🏆 Récord: '+(udata.best>=TARGET?fmt(udata.best):'—');
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+function showNotif(msg) {
+  var el = document.getElementById('notif');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');}, 2800);
+}
+
+if (uname) { udata = loadU(uname); showMain(); }
+</script>
+</body>
+</html>
