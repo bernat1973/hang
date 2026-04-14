@@ -148,6 +148,34 @@
   <div class="hgrid" id="hgrid"></div>
 </div>
 
+<div style="height:32px"></div>
+  <div class="htitle" style="margin-top:8px">Dominadas 💪</div>
+
+  <div class="timer-card" id="pullup-section">
+    <div class="tmsg" id="ptmsg"></div>
+    <div style="font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px;text-align:center">¿Cuántas has hecho hoy?</div>
+    <input type="number" id="pullup-input" min="0" max="100" placeholder="0"
+      style="width:100%;padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--accent);font-size:48px;font-family:'DM Mono',monospace;text-align:center;outline:none;margin-bottom:12px;-moz-appearance:textfield;"
+      oninput="this.style.borderColor=this.value?'var(--accent)':'var(--border)'">
+    <div class="btns" style="margin-bottom:10px">
+      <button class="btn bgo" onclick="savePullups()">Guardar</button>
+      <button class="btn breset" onclick="speakPullupTech()" style="font-size:13px">🔊 Cómo hacerlas</button>
+    </div>
+  </div>
+
+  <div class="result" id="pullup-result">
+    <div class="remoji">✅</div>
+    <div class="rtitle" id="pr-title"></div>
+    <div class="rsub" id="pr-sub"></div>
+    <div class="reminder">📸 Haz una captura y mándasela a papá por WhatsApp</div>
+    <button class="bwa" onclick="sendPullupWA()">Abrir WhatsApp</button>
+    <button class="bdel" onclick="deletePullupToday()">Borrar dominadas de hoy</button>
+  </div>
+
+  <div class="stats" id="pullup-stats"></div>
+  <div class="htitle">Dominadas — últimos 30 días</div>
+  <div class="hgrid" id="pullup-hgrid"></div>
+
 <div class="notif" id="notif"></div>
 
 <script>
@@ -438,6 +466,135 @@ function showNotif(msg) {
   el.textContent = msg; el.classList.add('show');
   setTimeout(function(){el.classList.remove('show');}, 2800);
 }
+
+if (uname) { udata = loadU(uname); showMain(); }
+
+// ── DOMINADAS ─────────────────────────────────────────────
+var PULL_MSGS = [
+  {n:1,  m:'Primera. Agarre firme, cuerpo recto.'},
+  {n:3,  m:'Tres. Baja completamente, brazos estirados del todo.'},
+  {n:5,  m:'Cinco. No balancees el cuerpo, sube con los brazos.'},
+  {n:8,  m:'Ocho. Increíble. Lleva el pecho a la barra.'},
+  {n:10, m:'Diez dominadas. Eso es fuerza de verdad.'},
+  {n:12, m:'Doce. Core apretado, no arquees la espalda.'},
+  {n:15, m:'Quince dominadas. Bestia absoluta.'},
+  {n:20, m:'Veinte. Leyenda.'},
+];
+
+var pullReps = 0, pullRunning = false, pullLastReps = 0;
+
+function startPullups() {
+  if (pullRunning) {
+    stopPullups();
+    return;
+  }
+  pullRunning = true;
+  pullReps = 0;
+  document.getElementById('pbgo').textContent = 'Parar';
+  document.getElementById('pbgo').className = 'btn bstop';
+  document.getElementById('pclock').style.color = 'var(--accent)';
+  document.getElementById('pullup-result').style.display = 'none';
+  document.getElementById('ptmsg').textContent = '';
+  speak('Venga. Agárrate a la barra. Empieza cuando quieras.');
+
+}
+
+function addPullup(n) {
+  if (!pullRunning) return;
+  pullReps = Math.max(0, pullReps + n);
+  document.getElementById('pclock').textContent = pullReps;
+  if (n > 0) {
+    var m = PULL_MSGS.filter(function(x){return x.n===pullReps;})[0];
+    if (m) { document.getElementById('ptmsg').textContent = m.m; speak(m.m); }
+  }
+}
+
+function stopPullups() {
+  pullRunning = false;
+  pullLastReps = pullReps;
+  document.getElementById('pbgo').textContent = 'Iniciar';
+  document.getElementById('pbgo').className = 'btn bgo';
+  document.getElementById('pclock').style.color = 'var(--text)';
+  if (pullReps > 0) {
+    var k = tkey();
+    if (!udata.pullLog) udata.pullLog = {};
+    if (!udata.pullBest) udata.pullBest = 0;
+    if (pullReps > (udata.pullLog[k] || 0)) udata.pullLog[k] = pullReps;
+    if (pullReps > udata.pullBest) udata.pullBest = pullReps;
+    saveU();
+    showPullupResult();
+    renderPullupStats();
+    renderPullupHistory();
+    speak('Parado. ' + pullReps + ' dominadas. Apuntado.');
+  }
+}
+
+function resetPullups() {
+  pullRunning = false; pullReps = 0;
+  document.getElementById('pbgo').textContent = 'Iniciar';
+  document.getElementById('pbgo').className = 'btn bgo';
+  document.getElementById('pclock').textContent = '0';
+  document.getElementById('pclock').style.color = 'var(--text)';
+  document.getElementById('ptmsg').textContent = '';
+  document.getElementById('pullup-result').style.display = 'none';
+}
+
+function showPullupResult() {
+  if (!udata.pullLog) udata.pullLog = {};
+  if (!udata.pullBest) udata.pullBest = 0;
+  var el = document.getElementById('pullup-result');
+  el.style.display = 'block';
+  el.className = 'result ok';
+  var isRec = pullLastReps >= udata.pullBest;
+  document.getElementById('pr-title').textContent = isRec ? '¡Nuevo récord de dominadas! 🏆' : '¡Registrado!';
+  document.getElementById('pr-sub').textContent = pullLastReps + ' dominadas · Récord: ' + udata.pullBest;
+}
+
+function deletePullupToday() {
+  if (!confirm('Borrar dominadas de hoy?')) return;
+  var k = tkey();
+  if (udata.pullLog) delete udata.pullLog[k];
+  saveU();
+  document.getElementById('pullup-result').style.display = 'none';
+  resetPullups();
+  renderPullupStats();
+  renderPullupHistory();
+  showNotif('Dominadas de hoy borradas');
+}
+
+function renderPullupStats() {
+  if (!udata.pullLog) udata.pullLog = {};
+  if (!udata.pullBest) udata.pullBest = 0;
+  var tv = udata.pullLog[tkey()] || 0;
+  document.getElementById('pullup-stats').innerHTML =
+    '<div class="stat"><div class="slabel">Hoy</div><div class="sval" style="color:'+(tv?'var(--accent)':'var(--muted)')+'">'+(tv||'—')+'</div><div class="ssub">dominadas</div></div>'+
+    '<div class="stat record"><div class="slabel">Récord</div><div class="sval">'+(udata.pullBest||'—')+'</div><div class="ssub">mejor día</div></div>';
+}
+
+function renderPullupHistory() {
+  if (!udata.pullLog) udata.pullLog = {};
+  var wrap = document.getElementById('pullup-hgrid');
+  wrap.innerHTML = '';
+  var tk = tkey(), d = new Date();
+  d.setDate(d.getDate()-29);
+  for (var i=0; i<30; i++) {
+    var k = d.toLocaleDateString('en-CA',{timeZone:'Europe/Madrid'});
+    var val = udata.pullLog[k] || 0;
+    var isT = k===tk;
+    var el = document.createElement('div');
+    el.className = 'hday'+(val?' done':'')+(isT&&!val?' today':'');
+    el.innerHTML = '<span>'+d.getDate()+'</span><div class="hdot"></div>'+(val?'<span class="htime">'+val+'</span>':'');
+    wrap.appendChild(el);
+    d.setDate(d.getDate()+1);
+  }
+}
+
+var origShowMain = showMain;
+showMain = function() {
+  origShowMain();
+  renderPullupStats();
+  renderPullupHistory();
+};
 
 if (uname) { udata = loadU(uname); showMain(); }
 </script>
